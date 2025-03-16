@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat - Empire Podcast Portal</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .chat-container {
+        height: 70vh;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+      }
+      .message {
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        border-radius: 5px;
+        max-width: 80%;
+      }
+      .user-message {
+        background-color: #007bff;
+        color: white;
+        margin-left: auto;
+      }
+      .assistant-message {
+        background-color: #e9ecef;
+        color: #212529;
+        margin-right: auto;
+      }
+      .typing-indicator {
+        display: inline-block;
+        width: 50px;
+        height: 30px;
+      }
+      .typing-indicator span {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #777;
+        margin: 0 2px;
+        animation: bounce 1.5s infinite ease-in-out;
+      }
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-8px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/">Empire Podcast Portal</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="/">Episodes</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/chat">Chat</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/summary">Summary</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <h1>Chat with the Podcast</h1>
+      <p class="lead">Ask questions about the episodes you've processed.</p>
+
+      <div class="row mt-4">
+        <div class="col-md-3">
+          <div class="card" id="episode-card">
+            <div class="card-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <span>Episodes</span>
+                <div class="dropdown">
+                  <button
+                    class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                    type="button"
+                    id="sortDropdown"
+                    data-bs-toggle="dropdown"
+                  >
+                    Newest First
+                  </button>
+                  <ul class="dropdown-menu" aria-labelledby="sortDropdown">
+                    <li>
+                      <a
+                        class="dropdown-item sort-option"
+                        data-sort="title-asc"
+                        href="#"
+                        >Title (A-Z)</a
+                      >
+                    </li>
+                    <li>
+                      <a
+                        class="dropdown-item sort-option"
+                        data-sort="title-desc"
+                        href="#"
+                        >Title (Z-A)</a
+                      >
+                    </li>
+                    <li>
+                      <a
+                        class="dropdown-item sort-option"
+                        data-sort="date-desc"
+                        href="#"
+                        >Newest First</a
+                      >
+                    </li>
+                    <li>
+                      <a
+                        class="dropdown-item sort-option"
+                        data-sort="date-asc"
+                        href="#"
+                        >Oldest First</a
+                      >
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <input
+                  type="text"
+                  id="episode-search"
+                  class="form-control form-control-sm"
+                  placeholder="Search episodes..."
+                />
+              </div>
+              <div
+                id="episodes-container"
+                style="max-height: 300px; overflow-y: auto"
+              >
+                <select id="episode-select" class="form-select d-none">
+                  {% for episode in episodes %}
+                  <option value="{{ episode.id }}">{{ episode.title }}</option>
+                  {% endfor %}
+                </select>
+                <div id="episodes-list" class="list-group">
+                  <!-- Episodes will be populated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-9">
+          <div class="chat-container mb-3" id="chat-messages">
+            <div class="message assistant-message">
+              Hello! I'm your podcast assistant. You can ask me questions about
+              the episodes you've processed.
+            </div>
+          </div>
+          <form id="chat-form">
+            <div class="input-group mb-3">
+              <input
+                type="text"
+                id="question-input"
+                class="form-control"
+                placeholder="Ask a question..."
+              />
+              <button class="btn btn-primary" type="submit">Send</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const chatForm = document.getElementById("chat-form");
+        const questionInput = document.getElementById("question-input");
+        const chatMessages = document.getElementById("chat-messages");
+        const episodeSelect = document.getElementById("episode-select");
+        const episodesList = document.getElementById("episodes-list");
+        const searchInput = document.getElementById("episode-search");
+
+        // Helper function to get current selected episode ID
+        function getSelectedEpisodeId() {
+          const activeEpisode = document.querySelector(
+            "#episodes-list .list-group-item.active"
+          );
+          return activeEpisode ? activeEpisode.dataset.id : null;
+        }
+
+        // Helper function to convert markdown to HTML
+        function markdownToHtml(markdown) {
+          if (!markdown) return "";
+
+          // Convert headers (## Header -> <h2>Header</h2>)
+          let html = markdown
+            .replace(/#{6}\s+(.*?)\s*$/gm, "<h6>$1</h6>")
+            .replace(/#{5}\s+(.*?)\s*$/gm, "<h5>$1</h5>")
+            .replace(/#{4}\s+(.*?)\s*$/gm, "<h4>$1</h4>")
+            .replace(/#{3}\s+(.*?)\s*$/gm, "<h3>$1</h3>")
+            .replace(/#{2}\s+(.*?)\s*$/gm, "<h2>$1</h2>")
+            .replace(/#{1}\s+(.*?)\s*$/gm, "<h1>$1</h1>");
+
+          // Convert bold (**bold** -> <strong>bold</strong>)
+          html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+          // Convert italic (*italic* -> <em>italic</em>)
+          html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+          // Convert unordered lists (- item -> <ul><li>item</li></ul>)
+          let listMatch = html.match(/^\s*[\-\*]\s+(.*?)$/gm);
+          if (listMatch) {
+            listMatch.forEach((item) => {
+              html = html.replace(/^\s*[\-\*]\s+(.*?)$/m, "<li>$1</li>");
+            });
+            html = html.replace(/<li>.*?<\/li>/s, "<ul>$&</ul>");
+          }
+
+          // Convert numbered lists (1. item -> <ol><li>item</li></ol>)
+          listMatch = html.match(/^\s*\d+\.\s+(.*?)$/gm);
+          if (listMatch) {
+            listMatch.forEach((item) => {
+              html = html.replace(/^\s*\d+\.\s+(.*?)$/m, "<li>$1</li>");
+            });
+            html = html.replace(/<li>.*?<\/li>/s, "<ol>$&</ol>");
+          }
+
+          // Convert paragraphs (blank line between paragraphs)
+          html = html.replace(/\n\n/g, "</p><p>");
+
+          // Convert line breaks
+          html = html.replace(/\n/g, "<br>");
+
+          // Wrap in paragraph tags if not already
+          if (!html.startsWith("<")) {
+            html = "<p>" + html + "</p>";
+          }
+
+          return html;
+        }
+
+        // Extract episodes from the template
+        const episodes = Array.from(episodeSelect.options).map((option) => {
+          return {
+            id: option.value,
+            title: option.textContent,
+            // Adding a date property for sorting (you may want to replace this with actual dates)
+            date: new Date(Date.now() - Math.random() * 31536000000), // Random date within the last year
+          };
+        });
+
+        // Current sort order
+        let currentSort = "date-desc";
+
+        // Function to render episodes
+        function renderEpisodes(episodeList) {
+          episodesList.innerHTML = "";
+          episodeList.forEach((episode) => {
+            const episodeItem = document.createElement("a");
+            episodeItem.href = "#";
+            episodeItem.className = "list-group-item list-group-item-action";
+            episodeItem.dataset.id = episode.id;
+            episodeItem.textContent = episode.title;
+            episodesList.appendChild(episodeItem);
+          });
+          // Select first episode by default if list is not empty
+          if (episodeList.length > 0) {
+            const firstItem = episodesList.querySelector(".list-group-item");
+            if (firstItem) {
+              firstItem.classList.add("active");
+            }
+          }
+        }
+
+        // Function to filter episodes
+        function filterEpisodes() {
+          const searchTerm = searchInput.value.toLowerCase();
+          const filteredEpisodes = episodes.filter((episode) =>
+            episode.title.toLowerCase().includes(searchTerm)
+          );
+          sortEpisodes(filteredEpisodes, currentSort);
+        }
+
+        // Function to sort episodes
+        function sortEpisodes(episodeList, sortOrder) {
+          const sortedEpisodes = [...episodeList];
+          switch (sortOrder) {
+            case "title-asc":
+              sortedEpisodes.sort((a, b) => a.title.localeCompare(b.title));
+              break;
+            case "title-desc":
+              sortedEpisodes.sort((a, b) => b.title.localeCompare(a.title));
+              break;
+            case "date-asc":
+              sortedEpisodes.sort((a, b) => a.date - b.date);
+              break;
+            case "date-desc":
+              sortedEpisodes.sort((a, b) => b.date - a.date);
+              break;
+          }
+          renderEpisodes(sortedEpisodes);
+        }
+
+        // Initialize episodes
+        sortEpisodes(episodes, currentSort);
+
+        chatForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const question = questionInput.value.trim();
+          if (!question) return;
+
+          // Get selected episode ID
+          const episodeId = getSelectedEpisodeId();
+          if (!episodeId) {
+            alert("Please select an episode first.");
+            return;
+          }
+
+          // Add user message to chat
+          const userMessage = document.createElement("div");
+          userMessage.className = "message user-message";
+          userMessage.textContent = question;
+          chatMessages.appendChild(userMessage);
+
+          // Clear input
+          questionInput.value = "";
+
+          // Add typing indicator
+          const typingIndicator = document.createElement("div");
+          typingIndicator.className =
+            "message assistant-message typing-indicator";
+          typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+          chatMessages.appendChild(typingIndicator);
+
+          // Scroll to bottom
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          // Send question to server
+          fetch("/ask", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              question: question,
+              episode_id: episodeId,
+            }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              // Remove typing indicator
+              chatMessages.removeChild(typingIndicator);
+
+              // Add assistant message with formatted HTML
+              const assistantMessage = document.createElement("div");
+              assistantMessage.className = "message assistant-message";
+
+              // Use innerHTML with the formatted markdown instead of textContent
+              assistantMessage.innerHTML = markdownToHtml(data.answer);
+
+              chatMessages.appendChild(assistantMessage);
+
+              // Scroll to bottom
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            })
+            .catch((error) => {
+              // Remove typing indicator
+              chatMessages.removeChild(typingIndicator);
+
+              // Add error message
+              const errorMessage = document.createElement("div");
+              errorMessage.className = "message assistant-message";
+              errorMessage.textContent =
+                "Sorry, there was an error processing your question.";
+              chatMessages.appendChild(errorMessage);
+
+              // Scroll to bottom
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        });
+
+        // Event listeners
+        searchInput.addEventListener("input", filterEpisodes);
+
+        // Sort dropdown event listeners
+        document.querySelectorAll(".sort-option").forEach((option) => {
+          option.addEventListener("click", function (e) {
+            e.preventDefault();
+            currentSort = this.dataset.sort;
+            document.getElementById("sortDropdown").textContent =
+              this.textContent;
+            filterEpisodes();
+          });
+        });
+
+        // Episode selection
+        episodesList.addEventListener("click", function (e) {
+          if (e.target.classList.contains("list-group-item")) {
+            e.preventDefault();
+
+            // Remove active class from all items
+            document
+              .querySelectorAll("#episodes-list .list-group-item")
+              .forEach((item) => {
+                item.classList.remove("active");
+              });
+
+            // Add active class to clicked item
+            e.target.classList.add("active");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

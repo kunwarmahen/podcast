@@ -1,0 +1,12 @@
+requests
+pydub
+whisper
+langchain_community
+langchain
+feedparser
+flask
+uuid
+chromadb
+openai-whisper
+langchain-ollama
+langchain-chroma
