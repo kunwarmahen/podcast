@@ -1,6 +1,6 @@
 # Empire Podcast Portal
 
-Welcome to the **Empire Podcast Portal**! This application allows you to manage and transcribe podcasts seamlessly using OpenAI Whisper.
+Welcome to the **Empire Podcast Portal**! This application allows you to listen, converse, and get summary and important tidbits about the a particular episode of a podcas.
 
 ## Features
 
